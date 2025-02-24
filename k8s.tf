@@ -1,11 +1,12 @@
 
 
+
 provider "kubernetes" {
   config_path = "~/.kube/config"
 }
 
 # # Zookeeper Deployment
-resource "kubernetes_deployment" "zookeeper" {
+resource "kubernetes_stateful_set" "zookeeper" {
   metadata {
     name = "zookeeper"
     labels = {
@@ -14,6 +15,7 @@ resource "kubernetes_deployment" "zookeeper" {
   }
 
   spec {
+    service_name = "zookeeper"
     replicas = 1
 
     selector {
@@ -68,7 +70,7 @@ resource "kubernetes_service" "zookeeper" {
 }
 
 # # Kafka Deployment
-resource "kubernetes_deployment" "kafka" {
+resource "kubernetes_stateful_set" "kafka" {
   metadata {
     name = "kafka"
     labels = {
@@ -77,6 +79,7 @@ resource "kubernetes_deployment" "kafka" {
   }
 
   spec {
+    service_name = "kafka"
     replicas = 1
 
     selector {
@@ -102,20 +105,36 @@ resource "kubernetes_deployment" "kafka" {
 
           env {
             name  = "KAFKA_ZOOKEEPER_CONNECT"
-            value = "zookeeper:2181"  # Ensure this is the correct Zookeeper service name
+            value = "zookeeper-0.zookeeper:2181"  # Ensure this is the correct Zookeeper service name
           }
           env {
             name  = "KAFKA_ADVERTISED_LISTENERS"
-            value = "PLAINTEXT://kafka.default.svc.cluster.local:9092"  # Kafka service address
+            value = "INSIDE://kafka-0.kafka:9092"  # Kafka service address
           }
           env {
             name  = "KAFKA_LISTENER_SECURITY_PROTOCOL"
-            value = "PLAINTEXT:PLAINTEXT"
+            value = "INSIDE:PLAINTEXT"
+          }
+	  env {
+	    name  = "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP"
+            value = "INSIDE:PLAINTEXT"
+          }
+	  env {
+  	    name  = "ZOOKEEPER_CLIENT_PORT"
+ 	    value = "2181"
+	  }
+          env {
+            name  = "KAFKA_LISTENERS"
+	    value = "INSIDE://0.0.0.0:9092"
           }
           env {
-            name  = "KAFKA_LISTENER_NAME"
-            value = "PLAINTEXT"
+            name  = "KAFKA_INTER_BROKER_LISTENER_NAME"
+            value = "INSIDE"
           }
+          env {
+            name  = "KAFKA_LISTENER_PORT"
+            value = "9092"
+	  }
 
           resources {
             requests = {
@@ -151,6 +170,8 @@ resource "kubernetes_service" "kafka" {
       port        = 9092
       target_port = 9092
     }
+
+    cluster_ip = "None"  # Headless service (no cluster IP)
   }
 }
 
